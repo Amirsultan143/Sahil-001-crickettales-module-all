@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CricketTales | Story Details</title>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Raleway:wght@400;700&family=Source+Sans+Pro:wght@400;600&display=swap"
+    rel="stylesheet"
+  />
+  <link rel="stylesheet" href="public/css/styles.css" />
+</head>
+<body>
+  <!-- Header -->
+  <header class="header">
+    <div class="container nav">
+      <a href="index.html" class="logo">CricketTales</a>
+      <ul class="nav-links">
+        <li><a href="index.html">Home</a></li>
+        <li><a href="story.html" class="active">Stories</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <!-- Main Story Section -->
+  <main class="container">
+    <section class="story-grid" id="story-detail">
+      <!-- Story will be injected dynamically here -->
+    </section>
+  </main>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="container">
+      <p>&copy; 2025 CricketTales.com - Powered by Community Stories</p>
+    </div>
+  </footer>
+
+  <!-- Scripts -->
+  <script>
+    const storyContainer = document.getElementById("story-detail");
+    const params = new URLSearchParams(window.location.search);
+    const storyId = params.get("id");
+
+    async function loadStoryDetail() {
+      try {
+        // First, try loading from API
+        const res = await fetch(`/.netlify/functions/stories?id=${storyId}`);
+        if (res.ok) {
+          const story = await res.json();
+
+          // Check if story format is valid
+          if (story && story.id) {
+            renderStory(story);
+            return;
+          }
+        }
+
+        // Fallback: Try localStorage if API fails
+        const localStories = JSON.parse(localStorage.getItem("submittedStories")) || [];
+        const fallbackStory = localStories.find((s) => s.id === storyId);
+
+        if (fallbackStory) {
+          renderStory(fallbackStory);
+        } else {
+          storyContainer.innerHTML = `
+            <div class="card story-card">
+              <p>❌ Story not found. Please go back to <a href="index.html">Home</a>.</p>
+            </div>
+          `;
+        }
+
+      } catch (err) {
+        console.error("Error loading story:", err);
+        storyContainer.innerHTML = `
+          <div class="card story-card">
+            <p>⚠️ Something went wrong. Please try again later.</p>
+          </div>
+        `;
+      }
+    }
+
+    function renderStory(story) {
+      storyContainer.innerHTML = `
+        <div class="card story-card wicket-border">
+          <div class="story-meta">
+            <span>By ${story.author}</span>
+            <span>${story.date}</span>
+          </div>
+          <h3 class="story-title">${story.title}</h3>
+          <p class="story-excerpt">${story.content || story.excerpt}</p>
+          ${story.tag ? `<p><strong>Category:</strong> ${story.tag}</p>` : ""}
+          <div class="vote-widget">
+            <div class="vote-count">
+              <span>⭐</span>
+              <span>${story.votes || 0} Votes</span>
+            </div>
+            <button class="btn-vote" onclick="voteForStory('${story.id}')">Vote for This Tale</button>
+          </div>
+          <div class="boost-section">
+            <button class="boost-btn" onclick="boostStory('${story.id}')">Boost This Tale - $2</button>
+          </div>
+        </div>
+      `;
+    }
+
+    // function voteForStory(storyId) {
+    //   alert("Vote submitted for " + storyId);
+    // }
+
+    // Utility to get current user email
+function getCurrentUserEmail() {
+  // For demo purposes (in real app, fetch from session/login)
+  return "user@example.com";
+}
+
+// ✅ One Vote per Email - Voting Logic
+async function voteForStory(storyId) {
+  const button = event.target;
+  const voteCountEl = button.parentElement.querySelector(
+    ".vote-count span:last-child"
+  );
+  const email = getCurrentUserEmail();
+
+  // Step 1: Check localStorage to prevent duplicate vote
+  const votedStories = JSON.parse(localStorage.getItem("votedStories") || "{}");
+
+  if (votedStories[storyId] === email) {
+    button.disabled = true;
+    button.innerHTML = "✅ Already Voted";
+    button.style.background = "#9ca3af"; // gray
+    return;
+  }
+
+  // Step 2: Proceed with vote
+  button.disabled = true;
+  button.innerHTML = "Voting...";
+
+  try {
+    const response = await fetch("/api/story-vote", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ storyId, email }),
+    });
+
+    if (response.ok) {
+      const currentCount = parseInt(voteCountEl.textContent.split(" ")[0]);
+      voteCountEl.textContent = `${currentCount + 1} votes`;
+
+      // Save vote to localStorage
+      votedStories[storyId] = email;
+      localStorage.setItem("votedStories", JSON.stringify(votedStories));
+
+      button.innerHTML = "✅ Voted";
+      button.style.background = "#10b981"; // green
+    } else {
+      throw new Error("Vote failed");
+    }
+  } catch (error) {
+    console.error("Vote Error:", error);
+    button.innerHTML = "❌ Try Again";
+    button.style.background = "#ef4444"; // red
+  }
+}
+// ✅ Disable button if already voted
+function disableVotedButtonsOnLoad() {
+  const votedStories = JSON.parse(localStorage.getItem("votedStories") || "{}");
+  const email = getCurrentUserEmail();
+
+  Object.keys(votedStories).forEach((storyId) => {
+    if (votedStories[storyId] === email) {
+      const voteButtons = document.querySelectorAll(
+        `.btn-vote[onclick*="${storyId}"]`
+      );
+      voteButtons.forEach((btn) => {
+        btn.disabled = true;
+        btn.innerHTML = "✅ Already Voted";
+        btn.style.background = "#9ca3af";
+      });
+    }
+  });
+}
+    function boostStory(storyId) {
+      alert("Boosted story: " + storyId);
+    }
+
+    window.addEventListener("DOMContentLoaded",()=>{
+      loadStoryDetail();
+      disableVotedButtonsOnLoad();
+    } ); //
+  </script>
+</body>
+</html>
